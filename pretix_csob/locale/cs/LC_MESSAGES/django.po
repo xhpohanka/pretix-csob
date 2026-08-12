@@ -116,6 +116,10 @@ msgid "ČSOB is operating against the sandbox gateway because this event is in t
 msgstr "ČSOB nyní komunikuje s testovací bránou, protože je tato akce v testovacím režimu. Žádné peníze nebudou skutečně převedeny."
 
 #: payment.py:295
+msgid "You can use one of {start_link}ČSOB's test cards{end_link} to complete a test payment."
+msgstr "Testovací platbu můžete dokončit pomocí jedné z {start_link}testovacích karet ČSOB{end_link}."
+
+#: payment.py:295
 msgid "Use ČSOB payment gateway"
 msgstr "Platba přes bránu ČSOB"
 

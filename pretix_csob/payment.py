@@ -7,6 +7,7 @@ from django.db import transaction
 from django.http import HttpRequest
 from django.template.loader import get_template, render_to_string
 from django.urls import resolve
+from django.utils.safestring import mark_safe
 from django.utils.translation import gettext as __, gettext_lazy as _
 from i18nfield.forms import I18nFormField, I18nTextInput
 from i18nfield.strings import LazyI18nString
@@ -23,6 +24,8 @@ from pretix.multidomain.urlreverse import build_absolute_uri, eventreverse
 from .csob_client import CSOBClient
 from .csob_payment import CSOBOrderPayment
 from .fields import SecretKeySettingsTextareaField
+
+TEST_CARDS_URL = "https://github.com/csob/platebnibrana/wiki/Testovac%C3%AD-karty"
 
 
 class CSOBSettingsHolder(BasePaymentProvider):
@@ -161,8 +164,8 @@ class CSOBSettingsHolder(BasePaymentProvider):
                             "Your ČSOB Merchant ID for the sandbox/test gateway. Used "
                             "automatically whenever this event is in test mode."
                         ))
-                        + ' <a href="https://github.com/csob/platebnibrana/wiki/Testovac%C3%AD-karty" '
-                          'target="_blank" rel="noopener">' + str(_("Test card numbers")) + "</a>"
+                        + f' <a href="{TEST_CARDS_URL}" target="_blank" rel="noopener">'
+                        + str(_("Test card numbers")) + "</a>"
                     ),
                     required=False,
                 ),
@@ -267,9 +270,16 @@ class CSOBMethod(BasePaymentProvider):
     @property
     def test_mode_message(self):
         if self.event.testmode and all(self._credentials(True)):
-            return _(
-                "ČSOB is operating against the sandbox gateway because this event is in "
-                "test mode. No money will actually be transferred."
+            return mark_safe(
+                str(_(
+                    "ČSOB is operating against the sandbox gateway because this event is in "
+                    "test mode. No money will actually be transferred."
+                ))
+                + " "
+                + str(_("You can use one of {start_link}ČSOB's test cards{end_link} to complete a test payment.")).format(
+                    start_link=f'<a href="{TEST_CARDS_URL}" target="_blank" rel="noopener">',
+                    end_link="</a>",
+                )
             )
         return None
 
