@@ -32,9 +32,9 @@ class CSOBOrderPayment(OrderPayment):
     def update_state(self, payment_status: int, detail: str):
         if payment_status == 1:
             self.state = self.PAYMENT_STATE_CREATED
-        if payment_status in [2, 4]:
+        elif payment_status in [2, 4]:
             self.state = self.PAYMENT_STATE_PENDING
-        if payment_status == [3, 5, 6]:
+        elif payment_status in [3, 5, 6]:
             pay_id = self.pay_id
             self.order.comment = f"ČSOB payment {pay_id} failed: {detail}"
             self.order.save()
@@ -42,7 +42,9 @@ class CSOBOrderPayment(OrderPayment):
             self.fail(
                 info=detail,
             )
-        if payment_status in [7, 8]:
+            return
+        elif payment_status in [7, 8]:
             self.confirm()
+            return
 
         self.save()

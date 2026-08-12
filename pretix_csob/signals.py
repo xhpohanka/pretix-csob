@@ -37,9 +37,8 @@ class CSOBKeysValidator:
         if not private_key or not public_key or not merchant_id:
             return True
 
-        client = CSOBClient(private_key, public_key, True)
-
         try:
+            client = CSOBClient(private_key, public_key, merchant_id, True)
             echo_get_request = client.get("echo", [merchant_id, client.get_current_timestamp()])
             echo_get_data = echo_get_request.json()
             if echo_get_request.status_code != 200 or echo_get_data.get("resultCode") != 0:
@@ -59,6 +58,8 @@ class CSOBKeysValidator:
                 return False
 
             return True
+        except ValueError:
+            return False
         except requests.RequestException:
             return False
 
