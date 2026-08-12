@@ -15,7 +15,7 @@ class PluginApp(PluginConfig):
 
     class PretixPluginMeta:
         name = gettext_lazy("ČSOB plugin")
-        author = "Inuits"
+        author = "Nick Settler"
         description = gettext_lazy("ČSOB payment gateway plugin for pretix.")
         visible = True
         version = __version__

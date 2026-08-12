@@ -1,15 +1,15 @@
 [project]
 name = "pretix_csob"
 dynamic = ["version"]
-description = "CSOB payment gateway plugin for pretix"
-readme = "README.rst"
-license = { text = "Apache" }
+description = "ČSOB payment gateway plugin for pretix"
+readme = "README.md"
+license = { file = "LICENSE" }
 keywords = ["pretix"]
 authors = [
-    { name = "Inuits" },
+    { name = "Nick Settler" },
 ]
 maintainers = [
-    { name = "Inuits" },
+    { name = "Jan Pohanka" },
 ]
 
 dependencies = [
@@ -29,10 +29,6 @@ requires = [
     "setuptools",
     "pretix-plugin-build",
 ]
-
-[project.urls]
-homepage = "https://github.com/pretix/pretix"
-repository = "https://github.com/pretix/pretix"
 
 [tool.setuptools]
 include-package-data = true
