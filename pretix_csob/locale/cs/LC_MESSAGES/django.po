@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: pretix-csob\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-12 09:14+0000\n"
+"POT-Creation-Date: 2026-08-12 09:56+0000\n"
 "PO-Revision-Date: 2026-08-12 09:14+0000\n"
 "Last-Translator: Jan Pohanka\n"
 "Language-Team: Czech\n"
@@ -28,27 +28,27 @@ msgstr "Plugin platební brány ČSOB pro pretix."
 msgid "Enable ČSOB payments by default"
 msgstr "Ve výchozím nastavení povolit platby přes ČSOB"
 
-#: forms.py:17 payment.py:131
+#: forms.py:17 payment.py:136
 msgid "Merchant ID (live)"
 msgstr "ID obchodníka (ostrý provoz)"
 
-#: forms.py:21 payment.py:139
+#: forms.py:21 payment.py:144
 msgid "Private Merchant Key (live)"
 msgstr "Privátní klíč obchodníka (ostrý provoz)"
 
-#: forms.py:25 payment.py:146
+#: forms.py:25 payment.py:151
 msgid "Public Bank Key (live)"
 msgstr "Veřejný klíč banky (ostrý provoz)"
 
-#: forms.py:29 payment.py:153
+#: forms.py:29 payment.py:158
 msgid "Merchant ID (sandbox)"
 msgstr "ID obchodníka (testovací prostředí)"
 
-#: forms.py:33 payment.py:164
+#: forms.py:33 payment.py:173
 msgid "Private Merchant Key (sandbox)"
 msgstr "Privátní klíč obchodníka (testovací prostředí)"
 
-#: forms.py:37 payment.py:171
+#: forms.py:37 payment.py:180
 msgid "Public Bank Key (sandbox)"
 msgstr "Veřejný klíč banky (testovací prostředí)"
 
@@ -56,50 +56,79 @@ msgstr "Veřejný klíč banky (testovací prostředí)"
 msgid "Please configure at least one of the live or sandbox credential sets."
 msgstr "Vyplňte prosím alespoň jednu sadu údajů - pro ostrý provoz, nebo pro testovací prostředí."
 
-#: forms.py:77 payment.py:64
+#: forms.py:77 payment.py:69
 msgid "Please fill in all live credential fields, or none."
 msgstr "Vyplňte prosím všechna pole pro ostrý provoz, nebo žádné."
 
-#: forms.py:79 payment.py:66
+#: forms.py:79 payment.py:71
 msgid "The live keys you provided are not valid. Please verify the keys and try again."
 msgstr "Zadané klíče pro ostrý provoz nejsou platné. Zkontrolujte je prosím a zkuste to znovu."
 
-#: forms.py:86 payment.py:77
+#: forms.py:86 payment.py:82
 msgid "Please fill in all sandbox credential fields, or none."
 msgstr "Vyplňte prosím všechna pole pro testovací prostředí, nebo žádné."
 
-#: forms.py:88 payment.py:79
+#: forms.py:88 payment.py:84
 msgid "The sandbox keys you provided are not valid. Please verify the keys and try again."
 msgstr "Zadané klíče pro testovací prostředí nejsou platné. Zkontrolujte je prosím a zkuste to znovu."
 
-#: payment.py:25 payment.py:184 payment.py:185 signals.py:136
+#: payment.py:30 payment.py:193 payment.py:203 signals.py:136
 #: templates/pretix_csob/organizer_settings.html:4
 #: templates/pretix_csob/organizer_settings.html:7
 msgid "ČSOB"
 msgstr "ČSOB"
 
-#: payment.py:132
+#: payment.py:137
 msgid "Your ČSOB Merchant ID for live/production payments."
 msgstr "Vaše ID obchodníka ČSOB pro ostrý provoz."
 
-#: payment.py:155
+#: payment.py:161
 msgid "Your ČSOB Merchant ID for the sandbox/test gateway. Used automatically whenever this event is in test mode."
 msgstr "Vaše ID obchodníka ČSOB pro testovací bránu. Použije se automaticky, kdykoli je tato akce v testovacím režimu."
 
+#: payment.py:165
+msgid "Test card numbers"
+msgstr "Testovací čísla karet"
+
+#: payment.py:212
+msgid "Payment method name"
+msgstr "Název způsobu platby"
+
 #: payment.py:220
+msgid "Payment process description during checkout"
+msgstr "Popis platebního procesu během pokladny"
+
+#: payment.py:222
+msgid "This text will be shown during checkout when the user selects this payment method. It should give a short explanation on this payment method."
+msgstr "Tento text se zobrazí během pokladny, když zákazník vybere tento způsob platby. Měl by stručně vysvětlit tento způsob platby."
+
+#: payment.py:233
+msgid "Payment process description for pending orders"
+msgstr "Popis platebního procesu pro nevyřízené objednávky"
+
+#: payment.py:235
+#, python-brace-format
+msgid "This text will be shown on the order confirmation page while the payment is still pending. You can use the placeholders {order}, {amount}, {currency} and {amount_with_currency}."
+msgstr "Tento text se zobrazí na stránce potvrzení objednávky, dokud platba čeká na zpracování. Můžete použít zástupné symboly {order}, {amount}, {currency} a {amount_with_currency}."
+
+#: payment.py:274
 msgid "ČSOB is operating against the sandbox gateway because this event is in test mode. No money will actually be transferred."
 msgstr "ČSOB nyní komunikuje s testovací bránou, protože je tato akce v testovacím režimu. Žádné peníze nebudou skutečně převedeny."
 
-#: payment.py:238
+#: payment.py:295
 msgid "Use ČSOB payment gateway"
 msgstr "Platba přes bránu ČSOB"
 
-#: payment.py:264
+#: payment.py:320
+msgid "Your payment is still pending."
+msgstr "Vaše platba stále čeká na zpracování."
+
+#: payment.py:336
 #, python-brace-format
 msgid "Payment status: {}"
 msgstr "Stav platby: {}"
 
-#: payment.py:291
+#: payment.py:363
 msgid "This payment provider is not configured correctly."
 msgstr "Tento způsob platby není správně nastaven."
 
@@ -146,10 +175,6 @@ msgstr "Celková částka uvedená výše bude po potvrzení nákupu stržena z 
 #: templates/pretix_csob/organizer_settings.html:15
 msgid "Save"
 msgstr "Uložit"
-
-#: templates/pretix_csob/payment_pending.html:1
-msgid "Your payment is still pending."
-msgstr "Vaše platba stále čeká na zpracování."
 
 #: templates/pretix_csob/payment_pending.html:5
 msgid "Check payment status"

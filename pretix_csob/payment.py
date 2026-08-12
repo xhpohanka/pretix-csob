@@ -8,11 +8,16 @@ from django.http import HttpRequest
 from django.template.loader import get_template, render_to_string
 from django.urls import resolve
 from django.utils.translation import gettext as __, gettext_lazy as _
-from pretix.base.forms import SECRET_REDACTED
+from i18nfield.forms import I18nFormField, I18nTextInput
+from i18nfield.strings import LazyI18nString
+from pretix.base.forms import I18nMarkdownTextarea, PlaceholderValidator, SECRET_REDACTED
 from pretix.base.models import Event, Order, OrderPayment
 from pretix.base.payment import BasePaymentProvider, PaymentException, logger
 from pretix.base.settings import SettingsSandbox
+from pretix.base.templatetags.money import money_filter
+from pretix.base.templatetags.rich_text import rich_text
 from pretix.helpers import OF_SELF
+from pretix.helpers.format import format_map
 from pretix.multidomain.urlreverse import build_absolute_uri, eventreverse
 
 from .csob_client import CSOBClient
@@ -176,6 +181,45 @@ class CSOBSettingsHolder(BasePaymentProvider):
                     required=False,
                 ),
             ),
+            (
+                "public_name",
+                I18nFormField(
+                    label=_("Payment method name"),
+                    widget=I18nTextInput,
+                    required=False,
+                ),
+            ),
+            (
+                "checkout_description",
+                I18nFormField(
+                    label=_("Payment process description during checkout"),
+                    help_text=_(
+                        "This text will be shown during checkout when the user selects this "
+                        "payment method. It should give a short explanation on this payment "
+                        "method."
+                    ),
+                    widget=I18nMarkdownTextarea,
+                    required=False,
+                ),
+            ),
+            (
+                "pending_description",
+                I18nFormField(
+                    label=_("Payment process description for pending orders"),
+                    help_text=_(
+                        "This text will be shown on the order confirmation page while the "
+                        "payment is still pending. You can use the placeholders {order}, "
+                        "{amount}, {currency} and {amount_with_currency}."
+                    ),
+                    widget=I18nMarkdownTextarea,
+                    validators=[
+                        PlaceholderValidator(
+                            ["{order}", "{amount}", "{currency}", "{amount_with_currency}"]
+                        )
+                    ],
+                    required=False,
+                ),
+            ),
         ]
 
         d = OrderedDict(fields + list(super().settings_form_fields.items()))
@@ -186,13 +230,16 @@ class CSOBSettingsHolder(BasePaymentProvider):
 class CSOBMethod(BasePaymentProvider):
     identifier = "csob"
     verbose_name = _("ČSOB")
-    public_name = _("ČSOB")
     execute_payment_needs_user = True
     method = "card"
 
     def __init__(self, event: Event):
         super().__init__(event)
         self.settings = SettingsSandbox("payment", "csob", event)
+
+    @property
+    def public_name(self):
+        return str(self.settings.get("public_name", as_type=LazyI18nString) or _("ČSOB"))
 
     @property
     def settings_form_fields(self):
@@ -239,7 +286,18 @@ class CSOBMethod(BasePaymentProvider):
         return self.payment_is_valid_session(request)
 
     def payment_form_render(self, request: HttpRequest, total: Decimal, order: Order = None) -> str:
+        description = self.settings.get("checkout_description", as_type=LazyI18nString)
+        if description:
+            return rich_text(str(description))
         return _("Use ČSOB payment gateway")
+
+    def _format_map(self, order, payment):
+        return {
+            "order": order.code,
+            "amount": payment.amount,
+            "currency": self.event.currency,
+            "amount_with_currency": money_filter(payment.amount, self.event.currency),
+        }
 
     def payment_pending_render(self, request, payment):
         check_url = eventreverse(
@@ -252,11 +310,18 @@ class CSOBMethod(BasePaymentProvider):
             },
         )
 
+        description = self.settings.get("pending_description", as_type=LazyI18nString)
+        if description:
+            description = format_map(str(description), self._format_map(payment.order, payment))
+        else:
+            description = _("Your payment is still pending.")
+
         context = {
             "order": payment.order,
             "payment": payment,
             "check_url": check_url,
             "csrf_token": request.COOKIES.get("pretix_csrftoken", ""),
+            "description": rich_text(str(description)),
             "_": _,
         }
 
