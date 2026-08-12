@@ -1,10 +1,16 @@
 import requests
 import urllib.parse
+import logging
+import json
 from base64 import b64decode as base64_decode, b64encode as base64_encode
 from collections import OrderedDict
 from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
+
+
+REQUEST_TIMEOUT = 15
+logger = logging.getLogger("pretix.plugins.csob")
 
 
 class CSOBClient:
@@ -74,12 +80,17 @@ class CSOBClient:
             + f"/{urllib.parse.quote_plus(signature)}"
         )
 
-        request = requests.get(url)
+        request = requests.get(url, timeout=REQUEST_TIMEOUT)
         response = OrderedDict(request.json())
+
+        if request.status_code >= 400 and "signature" not in response:
+            logger.warning("CSOB returned an unsigned error response: %s", response)
+            return request
 
         verified = self._verify_data(response)
 
         if not verified:
+            logger.warning("CSOB response signature verification failed: %s", response)
             raise ValueError("Invalid response signature")
 
         return request
@@ -95,18 +106,29 @@ class CSOBClient:
             }
         )
 
-        request = requests.post(url, json=request_data)
+        logger.debug(
+            "CSOB POST %s request JSON with signature: %s",
+            endpoint,
+            json.dumps(request_data, ensure_ascii=False),
+        )
+        request = requests.post(url, json=request_data, timeout=REQUEST_TIMEOUT)
         response = OrderedDict(request.json())
+
+        if request.status_code >= 400 and "signature" not in response:
+            logger.warning("CSOB returned an unsigned error response: %s", response)
+            return request
 
         verified = self._verify_data(response)
 
         if not verified:
+            logger.warning("CSOB response signature verification failed: %s", response)
             raise ValueError("Invalid response signature")
 
         return request
 
     def _sign_data(self, data: OrderedDict | list, base64=True) -> str:
         values = self.extract_data(data)
+        logger.debug("CSOB signing values: %s", "|".join(values))
 
         h = SHA256.new("|".join(values).encode("utf-8"))
         key = RSA.importKey(self._private_key)
