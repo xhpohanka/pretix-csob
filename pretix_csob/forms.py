@@ -70,21 +70,32 @@ class CSOBOrganizerSettingsForm(SettingsForm):
             )
             return data
 
-        for label, keys, sandbox in (("live", live, False), ("sandbox", test, True)):
+        for keys, sandbox, fill_in_message, invalid_message in (
+            (
+                live,
+                False,
+                _("Please fill in all live credential fields, or none."),
+                _(
+                    "The live keys you provided are not valid. Please verify the keys and "
+                    "try again."
+                ),
+            ),
+            (
+                test,
+                True,
+                _("Please fill in all sandbox credential fields, or none."),
+                _(
+                    "The sandbox keys you provided are not valid. Please verify the keys and "
+                    "try again."
+                ),
+            ),
+        ):
             if not any(keys):
                 continue
             if not all(keys):
-                raise forms.ValidationError(
-                    _("Please fill in all %s credential fields, or none.") % label
-                )
+                raise forms.ValidationError(fill_in_message)
             if not self._validate_keys(*keys, sandbox):
-                raise forms.ValidationError(
-                    _(
-                        "The %s keys you provided are not valid. Please verify the keys and "
-                        "try again."
-                    )
-                    % label
-                )
+                raise forms.ValidationError(invalid_message)
 
         return data
 

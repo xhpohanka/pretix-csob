@@ -53,40 +53,40 @@ class CSOBSettingsHolder(BasePaymentProvider):
             ),
         }
 
-        for label, sandbox, keys in (
+        for sandbox, keys, fill_in_message, invalid_message in (
             (
-                "live",
                 False,
                 (
                     resolved["payment_csob_merchant_id"],
                     resolved["payment_csob_private_key"],
                     resolved["payment_csob_public_key"],
                 ),
+                _("Please fill in all live credential fields, or none."),
+                _(
+                    "The live keys you provided are not valid. Please verify the keys and "
+                    "try again."
+                ),
             ),
             (
-                "sandbox",
                 True,
                 (
                     resolved["payment_csob_test_merchant_id"],
                     resolved["payment_csob_test_private_key"],
                     resolved["payment_csob_test_public_key"],
                 ),
+                _("Please fill in all sandbox credential fields, or none."),
+                _(
+                    "The sandbox keys you provided are not valid. Please verify the keys and "
+                    "try again."
+                ),
             ),
         ):
             if not any(keys):
                 continue
             if not all(keys):
-                raise forms.ValidationError(
-                    _("Please fill in all %s credential fields, or none.") % label
-                )
+                raise forms.ValidationError(fill_in_message)
             if not self._validate_keys(*keys, sandbox):
-                raise forms.ValidationError(
-                    _(
-                        "The %s keys you provided are not valid. Please verify the keys and "
-                        "try again."
-                    )
-                    % label
-                )
+                raise forms.ValidationError(invalid_message)
 
         return resolved
 
