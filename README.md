@@ -36,7 +36,8 @@ optional sets:
 
 - **Merchant ID / Private Merchant Key / Public Bank Key** - live/production credentials.
 - **Merchant ID / Private Merchant Key / Public Bank Key (sandbox)** - credentials for ČSOB's
-  test gateway.
+  test gateway. The sandbox field includes a link to [ČSOB's test card numbers](https://github.com/csob/platebnibrana/wiki/Testovac%C3%AD-karty)
+  for testing payments.
 
 Either set, both, or neither may be filled in at each settings level; whichever set is
 non-empty gets validated against ČSOB's `echo` endpoint when the settings form is saved.
@@ -53,6 +54,26 @@ bundled Stripe plugin uses:
 
 If an event is in test mode but no sandbox credentials are configured, ČSOB is reported as
 disabled rather than silently falling back to live credentials.
+
+### Customizable payment method text
+
+The appearance and text of this payment method can be customized with:
+
+- **Payment method name** - overrides the default "ČSOB" label shown to customers during
+  checkout.
+- **Payment process description during checkout** - markdown text displayed when customers
+  select this payment method, explaining how the payment works.
+- **Payment process description for pending orders** - markdown text shown on the order
+  confirmation page while payment is still pending. Supports placeholders: `{order}` (order
+  code), `{amount}` (numeric amount), `{currency}` (currency code), and `{amount_with_currency}`
+  (formatted amount with currency symbol).
+
+These fields can be left empty to use built-in defaults.
+
+## Localization
+
+The plugin includes a full Czech translation. All user-facing strings and configuration field
+labels are translated and available in Czech.
 
 ## Known limitations
 
