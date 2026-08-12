@@ -6,7 +6,7 @@ from django import forms
 from django.db import transaction
 from django.http import HttpRequest
 from django.template.loader import get_template, render_to_string
-from django.urls import resolve, reverse
+from django.urls import resolve
 from django.utils.crypto import get_random_string
 from django.utils.translation import gettext as __, gettext_lazy as _
 from pretix.base.forms import SECRET_REDACTED
@@ -14,6 +14,7 @@ from pretix.base.models import Event, Order, OrderPayment
 from pretix.base.payment import BasePaymentProvider, PaymentException, logger
 from pretix.base.settings import SettingsSandbox
 from pretix.helpers import OF_SELF
+from pretix.multidomain.urlreverse import build_absolute_uri, eventreverse
 
 from .csob_client import CSOBClient
 from .csob_payment import CSOBOrderPayment
@@ -151,7 +152,8 @@ class CSOBMethod(BasePaymentProvider):
         return _("Use ČSOB payment gateway")
 
     def payment_pending_render(self, request, payment):
-        check_url = reverse(
+        check_url = eventreverse(
+            self.event,
             "plugins:pretix_csob:check_status",
             kwargs={
                 "order": payment.order.code,
@@ -219,15 +221,14 @@ class CSOBMethod(BasePaymentProvider):
                 "totalAmount": int(payment.amount * 100),
                 "currency": currency,
                 "closePayment": True,
-                "returnUrl": request.build_absolute_uri(
-                    reverse(
-                        "plugins:pretix_csob:return",
-                        kwargs={
-                            "order": payment.order.code,
-                            "payment": payment.pk,
-                            "secret": self._get_payment_secret(payment),
-                        },
-                    )
+                "returnUrl": build_absolute_uri(
+                    self.event,
+                    "plugins:pretix_csob:return",
+                    kwargs={
+                        "order": payment.order.code,
+                        "payment": payment.pk,
+                        "secret": self._get_payment_secret(payment),
+                    },
                 ),
                 "returnMethod": "POST",
                 "cart": [cart_item],
