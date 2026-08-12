@@ -1,0 +1,23 @@
+{% load i18n %}
+
+{% if url.url_name == "event.order.pay.confirm" %}
+<div class="text-center" aria-hidden="true">
+    <span class="fa fa-info-circle fa-4x text-primary"></span>
+</div>
+<h2 class="text-center">
+    {% trans "Almost done …" %}
+</h2>
+<p class="h4 text-center">
+    {% trans 'Please click on the "Pay now" button below to confirm your payment.' %}
+</p>
+<p class="h4 text-center text-muted">
+    {% trans "You will be redirected to ČSOB payment gateway to process the payment." %}
+</p>
+{% else %}
+<p>
+    {% blocktrans trimmed %}
+    The total amount listed above will be withdrawn from your account after the
+    confirmation of your purchase.
+    {% endblocktrans %}
+</p>
+{% endif %}

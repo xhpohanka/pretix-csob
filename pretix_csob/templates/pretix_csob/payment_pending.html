@@ -1,0 +1,7 @@
+<p>{{ _('Your payment is still pending.') }}</p>
+{% if order.pending_sum == 0 %}
+<form action="{{ check_url }}" method="POST">
+    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+    <button type="submit">{{ _('Check payment status') }}</button>
+</form>
+{% endif %}

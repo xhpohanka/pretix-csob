@@ -1,0 +1,5 @@
+[plugin]
+package = "pretix_csob"
+modules = ["pretix_csob"]
+marketplace_name = "pretix_csob"
+

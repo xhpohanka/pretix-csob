@@ -1,0 +1,46 @@
+[project]
+name = "pretix_csob"
+dynamic = ["version"]
+description = "Short description"
+readme = "README.rst"
+license = { text = "Apache" }
+keywords = ["pretix"]
+authors = [
+    { name = "Inuits", email = "your-email@example.org" },
+]
+maintainers = [
+    { name = "Inuits", email = "your-email@example.org" },
+]
+
+dependencies = [
+]
+
+[project.entry-points."pretix.plugin"]
+pretix_csob = "pretix_csob:PretixPluginMeta"
+
+[project.entry-points."distutils.commands"]
+build = "pretix_plugin_build.build:CustomBuild"
+
+[build-system]
+requires = [
+    "setuptools",
+    "pretix-plugin-build",
+]
+
+[project.urls]
+homepage = "GitHub repository URL"
+repository = "GitHub repository URL"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.dynamic]
+version = { attr = "pretix_csob.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["pretix*"]
+namespaces = false
+
+[tool.black]
+line-length = 100
+

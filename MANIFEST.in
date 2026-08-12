@@ -1,0 +1,5 @@
+recursive-include pretix_csob/static *
+recursive-include pretix_csob/templates *
+recursive-include pretix_csob/locale *
+include LICENSE
+exclude .gitlab-ci.yml

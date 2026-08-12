@@ -1,0 +1,106 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-12-13 16:37+0100\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: pretix_csob/apps.py:17
+msgid "ČSOB plugin"
+msgstr "Plugin ČSOB"
+
+#: pretix_csob/apps.py:19
+msgid "ČSOB payment gateway plugin for pretix."
+msgstr "Plugin brány ČSOB pro pretix."
+
+#: pretix_csob/payment.py:24 pretix_csob/payment.py:131
+#: pretix_csob/payment.py:132
+msgid "ČSOB"
+msgstr "ČSOB"
+
+#: pretix_csob/payment.py:47
+msgid ""
+"The keys you provided are not valid. Please verify the keys and try again."
+msgstr "Klíče, které jste zadali, nejsou platné. Ověřte klíče a zkuste to znovu."
+
+#: pretix_csob/payment.py:96
+msgid "Merchant ID"
+msgstr "ID obchodníka"
+
+#: pretix_csob/payment.py:97
+msgid "Your ČSOB Merchant ID."
+msgstr "Vaše ID obchodníka ČSOB."
+
+#: pretix_csob/payment.py:104
+msgid "Private Merchant Key"
+msgstr "Privátní klíč obchodníka"
+
+#: pretix_csob/payment.py:111
+msgid "Public Bank Key"
+msgstr "Veřejný klíč banky"
+
+#: pretix_csob/payment.py:118
+msgid "Use Sandbox"
+msgstr "Použít testovací prostředí"
+
+#: pretix_csob/payment.py:150
+msgid "Use ČSOB payment gateway"
+msgstr "Pomocí platební brány ČSOB"
+
+#: pretix_csob/payment.py:175
+msgid "Payment status: {}"
+msgstr "Stav platby: {}"
+
+#: pretix_csob/signals.py:80
+msgid "ČSOB: Merchant ID"
+msgstr "ČSOB: ID obchodníka"
+
+#: pretix_csob/signals.py:87
+msgid "ČSOB: Private EShop Key"
+msgstr "ČSOB: Privátní klíč obchodníka"
+
+#: pretix_csob/signals.py:94
+msgid "ČSOB: Public Bank Key"
+msgstr "ČSOB: Veřejný klíč banky"
+
+#: pretix_csob/signals.py:101
+msgid "ČSOB: Use Sandbox"
+msgstr "ČSOB: Použít testovací prostředí"
+
+#: pretix_csob/templates/pretix_csob/checkout_payment_confirm.html:8
+msgid "Almost done …"
+msgstr "Skoro hotovo…"
+
+#: pretix_csob/templates/pretix_csob/checkout_payment_confirm.html:11
+msgid "Please click on the \"Pay now\" button below to confirm your payment."
+msgstr "Zmáčkněte tlačítko \"Zaplatit nyní\" níže pro potvrzení platby."
+
+#: pretix_csob/templates/pretix_csob/checkout_payment_confirm.html:14
+msgid "You will be redirected to ČSOB payment gateway to process the payment."
+msgstr "Budete přesměrováni na platební bránu ČSOB pro zpracování platby."
+
+#: pretix_csob/templates/pretix_csob/checkout_payment_confirm.html:18
+msgid ""
+"The total amount listed above will be withdrawn from your account after the "
+"confirmation of your purchase."
+msgstr "Celková částka uvedená výše bude po potvrzení nákupu stržena z vašeho účtu."
+
+#: pretix_csob/templates/pretix_csob/payment_pending.html:1
+msgid "Your payment is still pending."
+msgstr "Vaše platba se stale zpracovává."
+
+#: pretix_csob/templates/pretix_csob/payment_pending.html:5
+msgid "Check payment status"
+msgstr "Ověřit stav platby"
