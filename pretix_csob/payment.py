@@ -30,44 +30,65 @@ class CSOBSettingsHolder(BasePaymentProvider):
         super().__init__(event)
         self.settings = SettingsSandbox("payment", "csob", event)
 
+    def _resolve_secret(self, data, field, settings_key):
+        value = data.get(field)
+        return value if value != SECRET_REDACTED else self.settings.get(settings_key)
+
     def settings_form_clean(self, data):
-        merchant_id = data.get("payment_csob_merchant_id")
-        use_sandbox = data.get("payment_csob_use_sandbox")
-        private_key = (
-            data.get("payment_csob_private_key")
-            if data.get("payment_csob_private_key") != SECRET_REDACTED
-            else self.settings.get("private_key")
-        )
-        public_key = (
-            data.get("payment_csob_public_key")
-            if data.get("payment_csob_public_key") != SECRET_REDACTED
-            else self.settings.get("public_key")
-        )
-
-        if use_sandbox is None:
-            use_sandbox = self.settings.get("use_sandbox", as_type=bool)
-
-        if not merchant_id or not private_key or not public_key:
-            return {
-                **data,
-                "payment_csob_merchant_id": merchant_id,
-                "payment_csob_private_key": private_key,
-                "payment_csob_public_key": public_key,
-                "payment_csob_use_sandbox": use_sandbox,
-            }
-
-        if not self._validate_keys(merchant_id, private_key, public_key, use_sandbox):
-            raise forms.ValidationError(
-                _("The keys you provided are not valid. Please verify the keys and try again.")
-            )
-
-        return {
+        resolved = {
             **data,
-            "payment_csob_merchant_id": merchant_id,
-            "payment_csob_private_key": private_key,
-            "payment_csob_public_key": public_key,
-            "payment_csob_use_sandbox": use_sandbox,
+            "payment_csob_merchant_id": data.get("payment_csob_merchant_id"),
+            "payment_csob_private_key": self._resolve_secret(
+                data, "payment_csob_private_key", "private_key"
+            ),
+            "payment_csob_public_key": self._resolve_secret(
+                data, "payment_csob_public_key", "public_key"
+            ),
+            "payment_csob_test_merchant_id": data.get("payment_csob_test_merchant_id"),
+            "payment_csob_test_private_key": self._resolve_secret(
+                data, "payment_csob_test_private_key", "test_private_key"
+            ),
+            "payment_csob_test_public_key": self._resolve_secret(
+                data, "payment_csob_test_public_key", "test_public_key"
+            ),
         }
+
+        for label, sandbox, keys in (
+            (
+                "live",
+                False,
+                (
+                    resolved["payment_csob_merchant_id"],
+                    resolved["payment_csob_private_key"],
+                    resolved["payment_csob_public_key"],
+                ),
+            ),
+            (
+                "sandbox",
+                True,
+                (
+                    resolved["payment_csob_test_merchant_id"],
+                    resolved["payment_csob_test_private_key"],
+                    resolved["payment_csob_test_public_key"],
+                ),
+            ),
+        ):
+            if not any(keys):
+                continue
+            if not all(keys):
+                raise forms.ValidationError(
+                    _("Please fill in all %s credential fields, or none.") % label
+                )
+            if not self._validate_keys(*keys, sandbox):
+                raise forms.ValidationError(
+                    _(
+                        "The %s keys you provided are not valid. Please verify the keys and "
+                        "try again."
+                    )
+                    % label
+                )
+
+        return resolved
 
     def _validate_keys(self, merchant_id, private_key, public_key, use_sandbox):
         try:
@@ -107,29 +128,47 @@ class CSOBSettingsHolder(BasePaymentProvider):
             (
                 "merchant_id",
                 forms.CharField(
-                    label=_("Merchant ID"),
-                    help_text=_("Your ČSOB Merchant ID."),
-                    required=True,
+                    label=_("Merchant ID (live)"),
+                    help_text=_("Your ČSOB Merchant ID for live/production payments."),
+                    required=False,
                 ),
             ),
             (
                 "private_key",
                 SecretKeySettingsTextareaField(
-                    label=_("Private Merchant Key"),
-                    required=True,
+                    label=_("Private Merchant Key (live)"),
+                    required=False,
                 ),
             ),
             (
                 "public_key",
                 SecretKeySettingsTextareaField(
-                    label=_("Public Bank Key"),
-                    required=True,
+                    label=_("Public Bank Key (live)"),
+                    required=False,
                 ),
             ),
             (
-                "use_sandbox",
-                forms.BooleanField(
-                    label=_("Use Sandbox"),
+                "test_merchant_id",
+                forms.CharField(
+                    label=_("Merchant ID (sandbox)"),
+                    help_text=_(
+                        "Your ČSOB Merchant ID for the sandbox/test gateway. Used "
+                        "automatically whenever this event is in test mode."
+                    ),
+                    required=False,
+                ),
+            ),
+            (
+                "test_private_key",
+                SecretKeySettingsTextareaField(
+                    label=_("Private Merchant Key (sandbox)"),
+                    required=False,
+                ),
+            ),
+            (
+                "test_public_key",
+                SecretKeySettingsTextareaField(
+                    label=_("Public Bank Key (sandbox)"),
                     required=False,
                 ),
             ),
@@ -155,13 +194,33 @@ class CSOBMethod(BasePaymentProvider):
     def settings_form_fields(self):
         return {}
 
+    def _credentials(self, testmode: bool):
+        prefix = "test_" if testmode else ""
+        return (
+            self.settings.get(f"{prefix}merchant_id"),
+            self.settings.get(f"{prefix}private_key"),
+            self.settings.get(f"{prefix}public_key"),
+        )
+
+    def _client(self, order: Order = None) -> CSOBClient:
+        testmode = order.testmode if order is not None else self.event.testmode
+        merchant_id, private_key, public_key = self._credentials(testmode)
+        return CSOBClient(private_key, public_key, merchant_id, testmode)
+
     @property
     def is_enabled(self):
-        return super().is_enabled and bool(
-            self.settings.merchant_id
-            and self.settings.private_key
-            and self.settings.public_key
-        )
+        if not super().is_enabled:
+            return False
+        return all(self._credentials(self.event.testmode))
+
+    @property
+    def test_mode_message(self):
+        if self.event.testmode and all(self._credentials(True)):
+            return _(
+                "ČSOB is operating against the sandbox gateway because this event is in "
+                "test mode. No money will actually be transferred."
+            )
+        return None
 
     def is_implicit(self, request: HttpRequest) -> bool:
         enabled_providers = []
@@ -235,12 +294,7 @@ class CSOBMethod(BasePaymentProvider):
         custom_id = str(payment.pk)
 
         try:
-            client = CSOBClient(
-                self.settings.private_key,
-                self.settings.public_key,
-                self.settings.merchant_id,
-                self.settings.get("use_sandbox", as_type=bool),
-            )
+            client = self._client(payment.order)
             total_amount = int(payment.amount * 100)
 
             cart_item = OrderedDict(
@@ -253,7 +307,7 @@ class CSOBMethod(BasePaymentProvider):
 
             payment_data = OrderedDict(
                 {
-                    "merchantId": self.settings.merchant_id,
+                    "merchantId": client.merchant_id,
                     "orderNo": custom_id,
                     "dttm": self._get_current_timestamp(),
                     "payOperation": "payment",
@@ -358,12 +412,7 @@ class CSOBMethod(BasePaymentProvider):
         return language if language in {"cs", "en", "de", "sk", "hu", "pl", "ro"} else "en"
 
     def _get_payment_secret(self, payment: OrderPayment) -> str:
-        client = CSOBClient(
-            self.settings.private_key,
-            self.settings.public_key,
-            self.settings.merchant_id,
-            self.settings.get("use_sandbox", as_type=bool),
-        )
+        client = self._client(payment.order)
 
         payment_data = OrderedDict(
             {

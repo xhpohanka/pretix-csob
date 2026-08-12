@@ -71,6 +71,10 @@ class CSOBClient:
         if not self._private_key or not self._public_key:
             raise ValueError("Invalid private or public key")
 
+    @property
+    def merchant_id(self):
+        return self._merchant_id
+
     def get(self, endpoint: str, data: list = None) -> requests.Response:
         signature = self._sign_data(data)
         url = (

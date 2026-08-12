@@ -80,30 +80,43 @@ def register_global_settings(sender, **kwargs):
             (
                 "payment_csob_merchant_id",
                 forms.CharField(
-                    label=_("ČSOB: Merchant ID"),
+                    label=_("ČSOB: Merchant ID (live)"),
                     required=False,
                 ),
             ),
             (
                 "payment_csob_private_key",
                 SecretKeySettingsTextareaField(
-                    label=_("ČSOB: Private EShop Key"),
+                    label=_("ČSOB: Private Merchant Key (live)"),
                     required=False,
                 ),
             ),
             (
                 "payment_csob_public_key",
                 SecretKeySettingsTextareaField(
-                    label=_("ČSOB: Public Bank Key"),
+                    label=_("ČSOB: Public Bank Key (live)"),
                     required=False,
                 ),
             ),
             (
-                "payment_csob_use_sandbox",
-                forms.BooleanField(
-                    label=_("ČSOB: Use Sandbox"),
+                "payment_csob_test_merchant_id",
+                forms.CharField(
+                    label=_("ČSOB: Merchant ID (sandbox)"),
                     required=False,
-                    initial=False,
+                ),
+            ),
+            (
+                "payment_csob_test_private_key",
+                SecretKeySettingsTextareaField(
+                    label=_("ČSOB: Private Merchant Key (sandbox)"),
+                    required=False,
+                ),
+            ),
+            (
+                "payment_csob_test_public_key",
+                SecretKeySettingsTextareaField(
+                    label=_("ČSOB: Public Bank Key (sandbox)"),
+                    required=False,
                 ),
             ),
         ]

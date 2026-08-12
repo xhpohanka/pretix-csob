@@ -14,7 +14,6 @@ from pretix.control.views.organizer import OrganizerDetailViewMixin
 from pretix.helpers.http import redirect_to_url
 from pretix.multidomain.urlreverse import eventreverse
 
-from pretix_csob.csob_client import CSOBClient
 from pretix_csob.csob_payment import CSOBOrderPayment
 from pretix_csob.forms import CSOBOrganizerSettingsForm
 from pretix_csob.payment import CSOBMethod
@@ -42,12 +41,7 @@ def csob_return_view(request, order, payment, secret, *args, **kwargs):
     if secret != provider._get_payment_secret(payment):
         return HttpResponseBadRequest("Invalid secret")
 
-    client = CSOBClient(
-        provider.settings.get("private_key"),
-        provider.settings.get("public_key"),
-        provider.settings.get("merchant_id"),
-        provider.settings.get("use_sandbox"),
-    )
+    client = provider._client(order)
 
     response_data = request.POST if request.method == "POST" else request.GET
     verified = client._verify_data(OrderedDict(response_data.items()))
@@ -55,7 +49,7 @@ def csob_return_view(request, order, payment, secret, *args, **kwargs):
     status_request = client.get(
         "payment/status",
         [
-            provider.settings.get("merchant_id"),
+            client.merchant_id,
             payment.pay_id,
             client.get_current_timestamp(),
         ],
@@ -90,17 +84,12 @@ def csob_check_status(request, order, payment, secret, *args, **kwargs):
     if secret != provider._get_payment_secret(payment):
         return HttpResponseBadRequest("Invalid secret")
 
-    client = CSOBClient(
-        provider.settings.get("private_key"),
-        provider.settings.get("public_key"),
-        provider.settings.get("merchant_id"),
-        provider.settings.get("use_sandbox"),
-    )
+    client = provider._client(order)
 
     status_request = client.get(
         "payment/status",
         [
-            provider.settings.get("merchant_id"),
+            client.merchant_id,
             payment.pay_id,
             client.get_current_timestamp(),
         ],

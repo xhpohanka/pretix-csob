@@ -14,52 +14,77 @@ class CSOBOrganizerSettingsForm(SettingsForm):
         required=False,
     )
     payment_csob_merchant_id = forms.CharField(
-        label=_("Merchant ID"),
+        label=_("Merchant ID (live)"),
         required=False,
     )
     payment_csob_private_key = SecretKeySettingsTextareaField(
-        label=_("Private Merchant Key"),
+        label=_("Private Merchant Key (live)"),
         required=False,
     )
     payment_csob_public_key = SecretKeySettingsTextareaField(
-        label=_("Public Bank Key"),
+        label=_("Public Bank Key (live)"),
         required=False,
     )
-    payment_csob_use_sandbox = forms.BooleanField(
-        label=_("Use Sandbox"),
+    payment_csob_test_merchant_id = forms.CharField(
+        label=_("Merchant ID (sandbox)"),
+        required=False,
+    )
+    payment_csob_test_private_key = SecretKeySettingsTextareaField(
+        label=_("Private Merchant Key (sandbox)"),
+        required=False,
+    )
+    payment_csob_test_public_key = SecretKeySettingsTextareaField(
+        label=_("Public Bank Key (sandbox)"),
         required=False,
     )
 
     def clean(self):
         data = super().clean()
-        for field in ("payment_csob_private_key", "payment_csob_public_key"):
+        for field in (
+            "payment_csob_private_key",
+            "payment_csob_public_key",
+            "payment_csob_test_private_key",
+            "payment_csob_test_public_key",
+        ):
             if data.get(field) == SECRET_REDACTED:
                 data[field] = self.initial.get(field)
 
         if not data.get("payment_csob__enabled"):
             return data
 
-        required_fields = [
-            "payment_csob_merchant_id",
-            "payment_csob_private_key",
-            "payment_csob_public_key",
-        ]
-        for field in required_fields:
-            if not data.get(field):
-                self.add_error(field, _("This field is required."))
+        live = (
+            data.get("payment_csob_merchant_id"),
+            data.get("payment_csob_private_key"),
+            data.get("payment_csob_public_key"),
+        )
+        test = (
+            data.get("payment_csob_test_merchant_id"),
+            data.get("payment_csob_test_private_key"),
+            data.get("payment_csob_test_public_key"),
+        )
 
-        if self.errors:
+        if not any(live) and not any(test):
+            self.add_error(
+                "payment_csob_merchant_id",
+                _("Please configure at least one of the live or sandbox credential sets."),
+            )
             return data
 
-        if not self._validate_keys(
-            data["payment_csob_merchant_id"],
-            data["payment_csob_private_key"],
-            data["payment_csob_public_key"],
-            data.get("payment_csob_use_sandbox", False),
-        ):
-            raise forms.ValidationError(
-                _("The keys you provided are not valid. Please verify the keys and try again.")
-            )
+        for label, keys, sandbox in (("live", live, False), ("sandbox", test, True)):
+            if not any(keys):
+                continue
+            if not all(keys):
+                raise forms.ValidationError(
+                    _("Please fill in all %s credential fields, or none.") % label
+                )
+            if not self._validate_keys(*keys, sandbox):
+                raise forms.ValidationError(
+                    _(
+                        "The %s keys you provided are not valid. Please verify the keys and "
+                        "try again."
+                    )
+                    % label
+                )
 
         return data
 
