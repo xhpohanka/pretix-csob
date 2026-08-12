@@ -2,9 +2,11 @@ import requests
 from collections import OrderedDict
 from django import forms
 from django.dispatch import receiver
+from django.urls import resolve, reverse
 from django.utils.translation import gettext_lazy as _
 from pretix.base.forms import SECRET_REDACTED
 from pretix.base.signals import register_global_settings, register_payment_providers
+from pretix.control.signals import nav_organizer
 
 from .csob_client import CSOBClient
 from .fields import SecretKeySettingsTextareaField
@@ -106,3 +108,32 @@ def register_global_settings(sender, **kwargs):
             ),
         ]
     )
+
+
+@receiver(nav_organizer, dispatch_uid="csob_nav_organizer")
+def nav_organizer_settings(sender, request, organizer, **kwargs):
+    if not request.user.has_organizer_permission(
+        organizer, "organizer.settings.general:write", request=request
+    ):
+        return []
+
+    url = resolve(request.path_info)
+    return [
+        {
+            "label": _("ČSOB"),
+            "url": reverse(
+                "plugins:pretix_csob:settings",
+                kwargs={
+                    "organizer": organizer.slug,
+                },
+            ),
+            "parent": reverse(
+                "control:organizer.edit",
+                kwargs={
+                    "organizer": organizer.slug,
+                },
+            ),
+            "active": url.namespace == "plugins:pretix_csob"
+            and url.url_name == "settings",
+        }
+    ]
