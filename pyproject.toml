@@ -1,18 +1,21 @@
 [project]
 name = "pretix_csob"
 dynamic = ["version"]
-description = "Short description"
+description = "CSOB payment gateway plugin for pretix"
 readme = "README.rst"
 license = { text = "Apache" }
 keywords = ["pretix"]
 authors = [
-    { name = "Inuits", email = "your-email@example.org" },
+    { name = "Inuits" },
 ]
 maintainers = [
-    { name = "Inuits", email = "your-email@example.org" },
+    { name = "Inuits" },
 ]
 
 dependencies = [
+    "pretix>=2026.6.0.dev0",
+    "pycryptodome==3.23.*",
+    "requests",
 ]
 
 [project.entry-points."pretix.plugin"]
@@ -28,8 +31,8 @@ requires = [
 ]
 
 [project.urls]
-homepage = "GitHub repository URL"
-repository = "GitHub repository URL"
+homepage = "https://github.com/pretix/pretix"
+repository = "https://github.com/pretix/pretix"
 
 [tool.setuptools]
 include-package-data = true
@@ -43,4 +46,3 @@ namespaces = false
 
 [tool.black]
 line-length = 100
-
