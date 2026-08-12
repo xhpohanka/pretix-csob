@@ -7,7 +7,6 @@ from django.db import transaction
 from django.http import HttpRequest
 from django.template.loader import get_template, render_to_string
 from django.urls import resolve
-from django.utils.crypto import get_random_string
 from django.utils.translation import gettext as __, gettext_lazy as _
 from pretix.base.forms import SECRET_REDACTED
 from pretix.base.models import Event, Order, OrderPayment
@@ -33,6 +32,7 @@ class CSOBSettingsHolder(BasePaymentProvider):
 
     def settings_form_clean(self, data):
         merchant_id = data.get("payment_csob_merchant_id")
+        use_sandbox = data.get("payment_csob_use_sandbox")
         private_key = (
             data.get("payment_csob_private_key")
             if data.get("payment_csob_private_key") != SECRET_REDACTED
@@ -44,7 +44,19 @@ class CSOBSettingsHolder(BasePaymentProvider):
             else self.settings.get("public_key")
         )
 
-        if not self._validate_keys(merchant_id, private_key, public_key):
+        if use_sandbox is None:
+            use_sandbox = self.settings.get("use_sandbox", as_type=bool)
+
+        if not merchant_id or not private_key or not public_key:
+            return {
+                **data,
+                "payment_csob_merchant_id": merchant_id,
+                "payment_csob_private_key": private_key,
+                "payment_csob_public_key": public_key,
+                "payment_csob_use_sandbox": use_sandbox,
+            }
+
+        if not self._validate_keys(merchant_id, private_key, public_key, use_sandbox):
             raise forms.ValidationError(
                 _("The keys you provided are not valid. Please verify the keys and try again.")
             )
@@ -54,17 +66,17 @@ class CSOBSettingsHolder(BasePaymentProvider):
             "payment_csob_merchant_id": merchant_id,
             "payment_csob_private_key": private_key,
             "payment_csob_public_key": public_key,
+            "payment_csob_use_sandbox": use_sandbox,
         }
 
-    def _validate_keys(self, merchant_id, private_key, public_key):
-        client = CSOBClient(
-            private_key,
-            public_key,
-            merchant_id,
-            self.settings.get("use_sandbox", as_type=bool),
-        )
-
+    def _validate_keys(self, merchant_id, private_key, public_key, use_sandbox):
         try:
+            client = CSOBClient(
+                private_key,
+                public_key,
+                merchant_id,
+                use_sandbox,
+            )
             echo_get_request = client.get("echo", [merchant_id, client.get_current_timestamp()])
             echo_get_data = echo_get_request.json()
             if echo_get_request.status_code != 200 or echo_get_data.get("resultCode") != 0:
@@ -118,7 +130,7 @@ class CSOBSettingsHolder(BasePaymentProvider):
                 "use_sandbox",
                 forms.BooleanField(
                     label=_("Use Sandbox"),
-                    required=True,
+                    required=False,
                 ),
             ),
         ]
@@ -132,18 +144,33 @@ class CSOBMethod(BasePaymentProvider):
     identifier = "csob"
     verbose_name = _("ČSOB")
     public_name = _("ČSOB")
-    is_enabled = True
     execute_payment_needs_user = True
     method = "card"
 
     def __init__(self, event: Event):
         super().__init__(event)
         self.settings = SettingsSandbox("payment", "csob", event)
-        pass
 
     @property
     def settings_form_fields(self):
         return {}
+
+    @property
+    def is_enabled(self):
+        return super().is_enabled and bool(
+            self.settings.merchant_id
+            and self.settings.private_key
+            and self.settings.public_key
+        )
+
+    def is_implicit(self, request: HttpRequest) -> bool:
+        enabled_providers = []
+        for provider in request.event.get_payment_providers().values():
+            if provider.is_meta or not provider.is_enabled:
+                continue
+            enabled_providers.append(provider.identifier)
+
+        return enabled_providers == [self.identifier]
 
     def payment_prepare(self, request, payment):
         return self.payment_is_valid_session(request)
@@ -177,8 +204,19 @@ class CSOBMethod(BasePaymentProvider):
     def payment_control_render(self, request, payment):
         return _("Payment status: {}").format(payment.state)
 
-    @transaction.atomic
     def execute_payment(self, request: HttpRequest, payment: OrderPayment):
+        ex = None
+        with transaction.atomic():
+            try:
+                return self._execute_payment(request, payment)
+            except PaymentException as e:
+                ex = e
+        if ex:
+            raise ex
+
+        return False
+
+    def _execute_payment(self, request: HttpRequest, payment: OrderPayment):
         payment: CSOBOrderPayment = CSOBOrderPayment.objects.select_for_update(of=OF_SELF).get(
             pk=payment.pk
         )
@@ -189,85 +227,55 @@ class CSOBMethod(BasePaymentProvider):
             )
             return
 
+        if not self.is_enabled:
+            payment.fail(info={"error": "ČSOB payment provider is not configured."})
+            raise PaymentException(_("This payment provider is not configured correctly."))
+
         currency = payment.order.event.currency
-        custom_id = get_random_string(10, allowed_chars="0123456789")
-
-        cart_item = OrderedDict(
-            {
-                "name": __("Ticket"),
-                "quantity": 0,
-                "amount": 0,
-            }
-        )
-
-        for line in payment.order.positions.all():
-            cart_item["quantity"] += 1
-            cart_item["amount"] += int(line.price * 100)
-
-        client = CSOBClient(
-            self.settings.private_key,
-            self.settings.public_key,
-            self.settings.merchant_id,
-            self.settings.get("use_sandbox", as_type=bool),
-        )
-
-        payment_data = OrderedDict(
-            {
-                "merchantId": self.settings.merchant_id,
-                "orderNo": custom_id,
-                "dttm": self._get_current_timestamp(),
-                "payOperation": "payment",
-                "payMethod": "card",
-                "totalAmount": int(payment.amount * 100),
-                "currency": currency,
-                "closePayment": True,
-                "returnUrl": build_absolute_uri(
-                    self.event,
-                    "plugins:pretix_csob:return",
-                    kwargs={
-                        "order": payment.order.code,
-                        "payment": payment.pk,
-                        "secret": self._get_payment_secret(payment),
-                    },
-                ),
-                "returnMethod": "POST",
-                "cart": [cart_item],
-            }
-        )
+        custom_id = str(payment.pk)
 
         try:
-            customer = []
-            if (
-                payment.order.invoice_address.name is not None
-                and payment.order.invoice_address.name != ""
-            ):
-                customer.append(("name", payment.order.invoice_address.name))
-            if payment.order.email is not None and payment.order.email != "":
-                customer.append(("email", payment.order.email))
-            if payment.order.phone is not None and payment.order.phone.national_number is not None:
-                customer.append(
-                    (
-                        "homePhone",
-                        "+{}.{}".format(
-                            payment.order.phone.country_code,
-                            payment.order.phone.national_number,
-                        ),
-                    )
-                )
+            client = CSOBClient(
+                self.settings.private_key,
+                self.settings.public_key,
+                self.settings.merchant_id,
+                self.settings.get("use_sandbox", as_type=bool),
+            )
+            total_amount = int(payment.amount * 100)
 
-            if len(customer) != 0:
-                payment_data = OrderedDict({**payment_data, "customer": OrderedDict(customer)})
-        except Exception:
-            pass
+            cart_item = OrderedDict(
+                {
+                    "name": "Tickets",
+                    "quantity": 1,
+                    "amount": total_amount,
+                }
+            )
 
-        payment_data = OrderedDict(
-            {
-                **payment_data,
-                "language": request.LANGUAGE_CODE,
-            }
-        )
+            payment_data = OrderedDict(
+                {
+                    "merchantId": self.settings.merchant_id,
+                    "orderNo": custom_id,
+                    "dttm": self._get_current_timestamp(),
+                    "payOperation": "payment",
+                    "payMethod": "card",
+                    "totalAmount": total_amount,
+                    "currency": currency,
+                    "closePayment": True,
+                    "returnUrl": build_absolute_uri(
+                        self.event,
+                        "plugins:pretix_csob:return",
+                        kwargs={
+                            "order": payment.order.code,
+                            "payment": payment.pk,
+                            "secret": self._get_payment_secret(payment),
+                        },
+                    ),
+                    "returnMethod": "POST",
+                    "cart": [cart_item],
+                    "language": self._get_language_code(request),
+                }
+            )
 
-        try:
             init_request = client.post("payment/init", payment_data)
             init_response: dict = init_request.json()
 
@@ -300,13 +308,11 @@ class CSOBMethod(BasePaymentProvider):
 
             process_signature = client._sign_data(process_data)
 
-            return (
-                "https://iapi.iplatebnibrana.csob.cz/api/v1.9/payment/process/{}/{}/{}/{}/".format(
-                    process_data.get("merchantId"),
-                    urllib.parse.quote_plus(payment.pay_id),
-                    process_data.get("dttm"),
-                    urllib.parse.quote_plus(process_signature),
-                )
+            return client.get_api_url("payment/process/{}/{}/{}/{}/").format(
+                process_data.get("merchantId"),
+                urllib.parse.quote_plus(payment.pay_id),
+                process_data.get("dttm"),
+                urllib.parse.quote_plus(process_signature),
             )
 
         except ValueError:
@@ -346,6 +352,10 @@ class CSOBMethod(BasePaymentProvider):
         from datetime import datetime
 
         return datetime.now().strftime("%Y%m%d%H%M%S")
+
+    def _get_language_code(self, request):
+        language = request.LANGUAGE_CODE.lower().split("-")[0]
+        return language if language in {"cs", "en", "de", "sk", "hu", "pl", "ro"} else "en"
 
     def _get_payment_secret(self, payment: OrderPayment) -> str:
         client = CSOBClient(

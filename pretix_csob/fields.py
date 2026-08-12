@@ -1,5 +1,5 @@
 from django import forms
-from pretix.base.forms import SECRET_REDACTED
+from pretix.base.forms import SECRET_REDACTED, SecretKeySettingsField
 
 
 class SecretKeySettingsTextareaWidget(forms.Textarea):
@@ -21,15 +21,5 @@ class SecretKeySettingsTextareaWidget(forms.Textarea):
         return super().get_context(name, value, attrs)
 
 
-class SecretKeySettingsTextareaField(forms.CharField):
+class SecretKeySettingsTextareaField(SecretKeySettingsField):
     widget = SecretKeySettingsTextareaWidget
-
-    def has_changed(self, initial, data):
-        if data == SECRET_REDACTED:
-            return False
-        return super().has_changed(initial, data)
-
-    def run_validators(self, value):
-        if value == SECRET_REDACTED:
-            return
-        return super().run_validators(value)
