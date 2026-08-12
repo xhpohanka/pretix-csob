@@ -40,7 +40,7 @@ class CSOBOrderPayment(OrderPayment):
             self.order.save()
 
             self.fail(
-                info=detail,
+                info={"payId": pay_id, "error": detail},
             )
             return
         elif payment_status in [7, 8]:
