@@ -1,0 +1,164 @@
+# Czech translation for pretix-csob.
+# Copyright (C) 2026 Nick Settler, Jan Pohanka
+# This file is distributed under the same license as the pretix-csob package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: pretix-csob\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-08-12 09:14+0000\n"
+"PO-Revision-Date: 2026-08-12 09:14+0000\n"
+"Last-Translator: Jan Pohanka\n"
+"Language-Team: Czech\n"
+"Language: cs\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;\n"
+
+#: apps.py:17
+msgid "ČSOB plugin"
+msgstr "Plugin ČSOB"
+
+#: apps.py:19
+msgid "ČSOB payment gateway plugin for pretix."
+msgstr "Plugin platební brány ČSOB pro pretix."
+
+#: forms.py:13
+msgid "Enable ČSOB payments by default"
+msgstr "Ve výchozím nastavení povolit platby přes ČSOB"
+
+#: forms.py:17 payment.py:131
+msgid "Merchant ID (live)"
+msgstr "ID obchodníka (ostrý provoz)"
+
+#: forms.py:21 payment.py:139
+msgid "Private Merchant Key (live)"
+msgstr "Privátní klíč obchodníka (ostrý provoz)"
+
+#: forms.py:25 payment.py:146
+msgid "Public Bank Key (live)"
+msgstr "Veřejný klíč banky (ostrý provoz)"
+
+#: forms.py:29 payment.py:153
+msgid "Merchant ID (sandbox)"
+msgstr "ID obchodníka (testovací prostředí)"
+
+#: forms.py:33 payment.py:164
+msgid "Private Merchant Key (sandbox)"
+msgstr "Privátní klíč obchodníka (testovací prostředí)"
+
+#: forms.py:37 payment.py:171
+msgid "Public Bank Key (sandbox)"
+msgstr "Veřejný klíč banky (testovací prostředí)"
+
+#: forms.py:69
+msgid "Please configure at least one of the live or sandbox credential sets."
+msgstr "Vyplňte prosím alespoň jednu sadu údajů - pro ostrý provoz, nebo pro testovací prostředí."
+
+#: forms.py:77 payment.py:64
+msgid "Please fill in all live credential fields, or none."
+msgstr "Vyplňte prosím všechna pole pro ostrý provoz, nebo žádné."
+
+#: forms.py:79 payment.py:66
+msgid "The live keys you provided are not valid. Please verify the keys and try again."
+msgstr "Zadané klíče pro ostrý provoz nejsou platné. Zkontrolujte je prosím a zkuste to znovu."
+
+#: forms.py:86 payment.py:77
+msgid "Please fill in all sandbox credential fields, or none."
+msgstr "Vyplňte prosím všechna pole pro testovací prostředí, nebo žádné."
+
+#: forms.py:88 payment.py:79
+msgid "The sandbox keys you provided are not valid. Please verify the keys and try again."
+msgstr "Zadané klíče pro testovací prostředí nejsou platné. Zkontrolujte je prosím a zkuste to znovu."
+
+#: payment.py:25 payment.py:184 payment.py:185 signals.py:136
+#: templates/pretix_csob/organizer_settings.html:4
+#: templates/pretix_csob/organizer_settings.html:7
+msgid "ČSOB"
+msgstr "ČSOB"
+
+#: payment.py:132
+msgid "Your ČSOB Merchant ID for live/production payments."
+msgstr "Vaše ID obchodníka ČSOB pro ostrý provoz."
+
+#: payment.py:155
+msgid "Your ČSOB Merchant ID for the sandbox/test gateway. Used automatically whenever this event is in test mode."
+msgstr "Vaše ID obchodníka ČSOB pro testovací bránu. Použije se automaticky, kdykoli je tato akce v testovacím režimu."
+
+#: payment.py:220
+msgid "ČSOB is operating against the sandbox gateway because this event is in test mode. No money will actually be transferred."
+msgstr "ČSOB nyní komunikuje s testovací bránou, protože je tato akce v testovacím režimu. Žádné peníze nebudou skutečně převedeny."
+
+#: payment.py:238
+msgid "Use ČSOB payment gateway"
+msgstr "Platba přes bránu ČSOB"
+
+#: payment.py:264
+#, python-brace-format
+msgid "Payment status: {}"
+msgstr "Stav platby: {}"
+
+#: payment.py:291
+msgid "This payment provider is not configured correctly."
+msgstr "Tento způsob platby není správně nastaven."
+
+#: signals.py:83
+msgid "ČSOB: Merchant ID (live)"
+msgstr "ČSOB: ID obchodníka (ostrý provoz)"
+
+#: signals.py:90
+msgid "ČSOB: Private Merchant Key (live)"
+msgstr "ČSOB: Privátní klíč obchodníka (ostrý provoz)"
+
+#: signals.py:97
+msgid "ČSOB: Public Bank Key (live)"
+msgstr "ČSOB: Veřejný klíč banky (ostrý provoz)"
+
+#: signals.py:104
+msgid "ČSOB: Merchant ID (sandbox)"
+msgstr "ČSOB: ID obchodníka (testovací prostředí)"
+
+#: signals.py:111
+msgid "ČSOB: Private Merchant Key (sandbox)"
+msgstr "ČSOB: Privátní klíč obchodníka (testovací prostředí)"
+
+#: signals.py:118
+msgid "ČSOB: Public Bank Key (sandbox)"
+msgstr "ČSOB: Veřejný klíč banky (testovací prostředí)"
+
+#: templates/pretix_csob/checkout_payment_confirm.html:8
+msgid "Almost done …"
+msgstr "Už to skoro máte…"
+
+#: templates/pretix_csob/checkout_payment_confirm.html:11
+msgid "Please click on the \"Pay now\" button below to confirm your payment."
+msgstr "Kliknutím na tlačítko „Zaplatit nyní“ níže potvrďte svou platbu."
+
+#: templates/pretix_csob/checkout_payment_confirm.html:14
+msgid "You will be redirected to ČSOB payment gateway to process the payment."
+msgstr "Budete přesměrováni na platební bránu ČSOB, kde platbu dokončíte."
+
+#: templates/pretix_csob/checkout_payment_confirm.html:18
+msgid "The total amount listed above will be withdrawn from your account after the confirmation of your purchase."
+msgstr "Celková částka uvedená výše bude po potvrzení nákupu stržena z vašeho účtu."
+
+#: templates/pretix_csob/organizer_settings.html:15
+msgid "Save"
+msgstr "Uložit"
+
+#: templates/pretix_csob/payment_pending.html:1
+msgid "Your payment is still pending."
+msgstr "Vaše platba stále čeká na zpracování."
+
+#: templates/pretix_csob/payment_pending.html:5
+msgid "Check payment status"
+msgstr "Zkontrolovat stav platby"
+
+#: views.py:150
+msgid "Your changes have been saved."
+msgstr "Vaše změny byly uloženy."
+
+#: views.py:154
+msgid "We could not save your changes. See below for details."
+msgstr "Vaše změny se nepodařilo uložit. Podrobnosti naleznete níže."
