@@ -151,9 +151,13 @@ class CSOBSettingsHolder(BasePaymentProvider):
                 "test_merchant_id",
                 forms.CharField(
                     label=_("Merchant ID (sandbox)"),
-                    help_text=_(
-                        "Your ČSOB Merchant ID for the sandbox/test gateway. Used "
-                        "automatically whenever this event is in test mode."
+                    help_text=(
+                        str(_(
+                            "Your ČSOB Merchant ID for the sandbox/test gateway. Used "
+                            "automatically whenever this event is in test mode."
+                        ))
+                        + ' <a href="https://github.com/csob/platebnibrana/wiki/Testovac%C3%AD-karty" '
+                          'target="_blank" rel="noopener">' + str(_("Test card numbers")) + "</a>"
                     ),
                     required=False,
                 ),
