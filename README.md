@@ -78,5 +78,9 @@ labels are translated and available in Czech.
 ## Known limitations
 
 - ČSOB's API is called with a single flat "Tickets" cart line for the payment's total amount,
-  not itemized per order position.
-- Customer name/e-mail/phone are not sent to ČSOB as part of the payment request.
+  not itemized per order position. The order code and event slug are attached to that line's
+  `description` and, base64-encoded, to `merchantData` - both purely for lookup in ČSOB's own
+  systems, neither is shown to the customer. `orderNo` itself stays the internal payment ID
+  (numeric, capped at 10 digits by ČSOB - pretix's own alphanumeric order code can't go there).
+- Customer name/e-mail/phone are not sent to ČSOB as part of the payment request (matching the
+  official Stripe plugin, which doesn't send them either).

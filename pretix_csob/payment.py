@@ -1,3 +1,4 @@
+import base64
 import requests
 import urllib.parse
 from collections import OrderedDict
@@ -376,11 +377,18 @@ class CSOBMethod(BasePaymentProvider):
             client = self._client(payment.order)
             total_amount = int(payment.amount * 100)
 
+            # "name" is required and capped at 20 chars by ČSOB - kept short and
+            # generic; the order code (what a customer or support agent would
+            # actually search for) goes in "description" instead, which has
+            # room for it (40 chars). Field order within a cart item matters for
+            # the request signature (name, quantity, amount, description, per
+            # ČSOB's eAPI v1.9 docs) - do not reorder these keys.
             cart_item = OrderedDict(
                 {
                     "name": "Tickets",
                     "quantity": 1,
                     "amount": total_amount,
+                    "description": f"{payment.order.code} {self.event.slug}"[:40],
                 }
             )
 
@@ -405,6 +413,19 @@ class CSOBMethod(BasePaymentProvider):
                     ),
                     "returnMethod": "POST",
                     "cart": [cart_item],
+                    # Auxiliary data for ČSOB's own backoffice/support lookup, not
+                    # shown to the customer - the actual order code and event,
+                    # since "orderNo" above is only the numeric OrderPayment PK
+                    # (orderNo is required to be numeric, max 10 digits, so it
+                    # can't hold pretix's own alphanumeric order code directly).
+                    # Must be base64-encoded per the API; the 255-char post-
+                    # encoding limit is generous relative to slug (<=50) + order
+                    # code (<=16), no truncation needed in practice. Must be
+                    # placed here, right after "cart" and before "language" -
+                    # same field-order-matters-for-signing reasoning as above.
+                    "merchantData": base64.b64encode(
+                        f"{self.event.slug}:{payment.order.code}".encode()
+                    ).decode(),
                     "language": self._get_language_code(request),
                 }
             )
