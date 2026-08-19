@@ -98,6 +98,18 @@ class CSOBSettingsHolder(BasePaymentProvider):
             if not self._validate_keys(*keys, sandbox):
                 raise forms.ValidationError(invalid_message)
 
+        endpoint = data.get("payment_csob_endpoint") or "auto"
+        selected_keys = test if (
+            endpoint == "sandbox" or (endpoint == "auto" and self.event.testmode)
+        ) else live
+        if not all(selected_keys):
+            raise forms.ValidationError(
+                _(
+                    "Please configure the credential set for the selected ČSOB "
+                    "gateway environment."
+                )
+            )
+
         return resolved
 
     def _validate_keys(self, merchant_id, private_key, public_key, use_sandbox):
@@ -136,6 +148,28 @@ class CSOBSettingsHolder(BasePaymentProvider):
     def settings_form_fields(self):
         fields = [
             (
+                "endpoint",
+                forms.ChoiceField(
+                    label=_("ČSOB gateway environment"),
+                    choices=[
+                        (
+                            "auto",
+                            _("Use the event test mode setting"),
+                        ),
+                        ("live", _("Force live/production gateway")),
+                        ("sandbox", _("Force sandbox/test gateway")),
+                    ],
+                    help_text=_(
+                        "By default, ČSOB uses the sandbox gateway for test-mode events "
+                        "and the live gateway for live events. Override this only when "
+                        "you need this payment method to use a different gateway than "
+                        "the event test mode."
+                    ),
+                    initial="auto",
+                    required=False,
+                ),
+            ),
+            (
                 "merchant_id",
                 forms.CharField(
                     label=_("Merchant ID (live)"),
@@ -164,7 +198,7 @@ class CSOBSettingsHolder(BasePaymentProvider):
                     help_text=(
                         str(_(
                             "Your ČSOB Merchant ID for the sandbox/test gateway. Used "
-                            "automatically whenever this event is in test mode."
+                            "whenever ČSOB is configured to use the sandbox gateway."
                         ))
                         + f' <a href="{TEST_CARDS_URL}" target="_blank" rel="noopener">'
                         + str(_("Test card numbers")) + "</a>"
@@ -261,8 +295,25 @@ class CSOBMethod(BasePaymentProvider):
             self.settings.get(f"{prefix}public_key"),
         )
 
-    def _client(self, order: Order = None) -> CSOBClient:
-        testmode = order.testmode if order is not None else self.event.testmode
+    def _effective_testmode(self, order: Order = None, payment: OrderPayment = None) -> bool:
+        if payment is not None:
+            try:
+                csob_testmode = payment.info_data.get("csob_testmode")
+            except ValueError:
+                csob_testmode = None
+            if csob_testmode is not None:
+                return csob_testmode
+
+        endpoint = self.settings.get("endpoint") or "auto"
+        if endpoint == "live":
+            return False
+        if endpoint == "sandbox":
+            return True
+
+        return order.testmode if order is not None else self.event.testmode
+
+    def _client(self, order: Order = None, payment: OrderPayment = None) -> CSOBClient:
+        testmode = self._effective_testmode(order, payment)
         merchant_id, private_key, public_key = self._credentials(testmode)
         return CSOBClient(private_key, public_key, merchant_id, testmode)
 
@@ -284,7 +335,7 @@ class CSOBMethod(BasePaymentProvider):
         if not payment.pay_id:
             raise PaymentException(_("No ČSOB payment ID found."))
 
-        client = self._client(payment.order)
+        client = self._client(payment=payment)
         refund_data = OrderedDict(
             {
                 "merchantId": client.merchant_id,
@@ -352,15 +403,15 @@ class CSOBMethod(BasePaymentProvider):
     def is_enabled(self):
         if not super().is_enabled:
             return False
-        return all(self._credentials(self.event.testmode))
+        return all(self._credentials(self._effective_testmode()))
 
     @property
     def test_mode_message(self):
-        if self.event.testmode and all(self._credentials(True)):
+        if self._effective_testmode() and all(self._credentials(True)):
             return mark_safe(
                 str(_(
-                    "ČSOB is operating against the sandbox gateway because this event is in "
-                    "test mode. No money will actually be transferred."
+                    "ČSOB is operating against the sandbox gateway. No money will "
+                    "actually be transferred."
                 ))
                 + " "
                 + str(_("You can use one of {start_link}ČSOB's test cards{end_link} to complete a test payment.")).format(
@@ -460,7 +511,10 @@ class CSOBMethod(BasePaymentProvider):
         custom_id = str(payment.pk)
 
         try:
-            client = self._client(payment.order)
+            payment.csob_testmode = self._effective_testmode(payment.order)
+            payment.save(update_fields=["info"])
+
+            client = self._client(payment=payment)
             total_amount = int(payment.amount * 100)
 
             # "name" is required and capped at 20 chars by ČSOB - kept short and
@@ -598,7 +652,7 @@ class CSOBMethod(BasePaymentProvider):
         return language if language in {"cs", "en", "de", "sk", "hu", "pl", "ro"} else "en"
 
     def _get_payment_secret(self, payment: OrderPayment) -> str:
-        client = self._client(payment.order)
+        client = self._client(payment=payment)
 
         payment_data = OrderedDict(
             {

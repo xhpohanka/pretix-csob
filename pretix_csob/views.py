@@ -41,7 +41,7 @@ def csob_return_view(request, order, payment, secret, *args, **kwargs):
     if secret != provider._get_payment_secret(payment):
         return HttpResponseBadRequest("Invalid secret")
 
-    client = provider._client(order)
+    client = provider._client(payment=payment)
 
     response_data = request.POST if request.method == "POST" else request.GET
     verified = client._verify_data(OrderedDict(response_data.items()))
@@ -84,7 +84,7 @@ def csob_check_status(request, order, payment, secret, *args, **kwargs):
     if secret != provider._get_payment_secret(payment):
         return HttpResponseBadRequest("Invalid secret")
 
-    client = provider._client(order)
+    client = provider._client(payment=payment)
 
     status_request = client.get(
         "payment/status",
