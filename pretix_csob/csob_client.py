@@ -130,6 +130,37 @@ class CSOBClient:
 
         return request
 
+    def put(self, endpoint: str, data: OrderedDict = None) -> requests.Response:
+        signature = self._sign_data(data)
+        url = self.get_api_url(endpoint)
+
+        request_data = OrderedDict(
+            {
+                **data,
+                "signature": signature,
+            }
+        )
+
+        logger.debug(
+            "CSOB PUT %s request JSON with signature: %s",
+            endpoint,
+            json.dumps(request_data, ensure_ascii=False),
+        )
+        request = requests.put(url, json=request_data, timeout=REQUEST_TIMEOUT)
+        response = OrderedDict(request.json())
+
+        if request.status_code >= 400 and "signature" not in response:
+            logger.warning("CSOB returned an unsigned error response: %s", response)
+            return request
+
+        verified = self._verify_data(response)
+
+        if not verified:
+            logger.warning("CSOB response signature verification failed: %s", response)
+            raise ValueError("Invalid response signature")
+
+        return request
+
     def _sign_data(self, data: OrderedDict | list, base64=True) -> str:
         values = self.extract_data(data)
         logger.debug("CSOB signing values: %s", "|".join(values))

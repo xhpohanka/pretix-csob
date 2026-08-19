@@ -1,4 +1,5 @@
 import base64
+import json
 import requests
 import urllib.parse
 from collections import OrderedDict
@@ -13,7 +14,7 @@ from django.utils.translation import gettext as __, gettext_lazy as _
 from i18nfield.forms import I18nFormField, I18nTextInput
 from i18nfield.strings import LazyI18nString
 from pretix.base.forms import I18nMarkdownTextarea, PlaceholderValidator, SECRET_REDACTED
-from pretix.base.models import Event, Order, OrderPayment
+from pretix.base.models import Event, Order, OrderPayment, OrderRefund
 from pretix.base.payment import BasePaymentProvider, PaymentException, logger
 from pretix.base.settings import SettingsSandbox
 from pretix.base.templatetags.money import money_filter
@@ -249,6 +250,9 @@ class CSOBMethod(BasePaymentProvider):
     def settings_form_fields(self):
         return {}
 
+    def _get_amount(self, amount: Decimal) -> int:
+        return int(amount * 100)
+
     def _credentials(self, testmode: bool):
         prefix = "test_" if testmode else ""
         return (
@@ -261,6 +265,88 @@ class CSOBMethod(BasePaymentProvider):
         testmode = order.testmode if order is not None else self.event.testmode
         merchant_id, private_key, public_key = self._credentials(testmode)
         return CSOBClient(private_key, public_key, merchant_id, testmode)
+
+    def payment_refund_supported(self, payment: OrderPayment) -> bool:
+        try:
+            return bool(payment.info_data.get("payId"))
+        except ValueError:
+            return False
+
+    def payment_partial_refund_supported(self, payment: OrderPayment) -> bool:
+        return self.payment_refund_supported(payment)
+
+    @transaction.atomic()
+    def execute_refund(self, refund: OrderRefund):
+        payment = CSOBOrderPayment.objects.select_for_update(of=OF_SELF).get(
+            pk=refund.payment_id
+        )
+
+        if not payment.pay_id:
+            raise PaymentException(_("No ČSOB payment ID found."))
+
+        client = self._client(payment.order)
+        refund_data = OrderedDict(
+            {
+                "merchantId": client.merchant_id,
+                "payId": payment.pay_id,
+                "dttm": self._get_current_timestamp(),
+            }
+        )
+        if refund.amount != payment.amount:
+            refund_data["amount"] = self._get_amount(refund.amount)
+
+        try:
+            refund_request = client.put("payment/refund", refund_data)
+            refund_response = refund_request.json()
+        except ValueError:
+            logger.exception("ČSOB refund error")
+            raise PaymentException(_("The payment gateway returned an invalid response."))
+        except requests.RequestException:
+            logger.exception("ČSOB refund error")
+            raise PaymentException(
+                _("An error occurred while communicating with the payment gateway.")
+            )
+
+        refund.info = json.dumps(refund_response)
+        refund.save(update_fields=["info"])
+
+        result = refund_response.get("resultCode")
+        payment_status = refund_response.get("paymentStatus")
+        if refund_request.status_code != 200 or result != 0:
+            message = refund_response.get("resultMessage") or refund_response.get(
+                "statusDetail"
+            )
+            logger.error("ČSOB refund error: %s", refund_response)
+            refund.order.log_action(
+                "pretix.event.order.refund.failed",
+                {
+                    "local_id": refund.local_id,
+                    "provider": refund.provider,
+                    "error": message or result,
+                },
+            )
+            raise PaymentException(
+                _("Refunding the amount via ČSOB failed: {}").format(
+                    message or result
+                )
+            )
+
+        logger.info(
+            "ČSOB refund accepted for payment %s, refund %s, amount %s %s, "
+            "paymentStatus %s: %s",
+            payment.pay_id,
+            refund.full_id,
+            refund.amount,
+            refund.order.event.currency,
+            payment_status,
+            refund_response,
+        )
+
+        if payment_status == 10:
+            refund.done()
+        else:
+            refund.state = OrderRefund.REFUND_STATE_TRANSIT
+            refund.save(update_fields=["state"])
 
     @property
     def is_enabled(self):
