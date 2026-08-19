@@ -28,6 +28,15 @@ from .csob_payment import CSOBOrderPayment
 from .fields import SecretKeySettingsTextareaField
 
 TEST_CARDS_URL = "https://github.com/csob/platebnibrana/wiki/Testovac%C3%AD-karty"
+CSOB_REVERSE_STATUSES = {4, 7}
+CSOB_REFUND_STATUSES = {8}
+
+
+def _parse_payment_status(response):
+    try:
+        return int(response.get("paymentStatus"))
+    except (TypeError, ValueError):
+        raise PaymentException(_("The payment gateway returned an invalid payment status."))
 
 
 class CSOBSettingsHolder(BasePaymentProvider):
@@ -329,6 +338,33 @@ class CSOBMethod(BasePaymentProvider):
     def payment_partial_refund_supported(self, payment: OrderPayment) -> bool:
         return self.payment_refund_supported(payment)
 
+    def _payment_status(self, client: CSOBClient, payment: CSOBOrderPayment):
+        status_request = client.get(
+            "payment/status",
+            [
+                client.merchant_id,
+                payment.pay_id,
+                client.get_current_timestamp(),
+            ],
+        )
+        status_response = status_request.json()
+
+        if (
+            status_request.status_code != 200
+            or str(status_response.get("resultCode")) != "0"
+        ):
+            message = status_response.get("resultMessage") or status_response.get(
+                "statusDetail"
+            )
+            logger.error("ČSOB payment status error: %s", status_response)
+            raise PaymentException(
+                _("Could not determine the current ČSOB payment status: {}").format(
+                    message or status_response.get("resultCode")
+                )
+            )
+
+        return status_response
+
     @transaction.atomic()
     def execute_refund(self, refund: OrderRefund):
         payment = CSOBOrderPayment.objects.select_for_update(of=OF_SELF).get(
@@ -339,38 +375,69 @@ class CSOBMethod(BasePaymentProvider):
             raise PaymentException(_("No ČSOB payment ID found."))
 
         client = self._client(payment=payment)
-        refund_data = OrderedDict(
+        status_response = self._payment_status(client, payment)
+        current_payment_status = _parse_payment_status(status_response)
+
+        if current_payment_status in CSOB_REVERSE_STATUSES:
+            if refund.amount != payment.amount:
+                raise PaymentException(
+                    _(
+                        "ČSOB can only reverse the full amount before settlement. "
+                        "Please wait until the payment is settled before creating a "
+                        "partial refund."
+                    )
+                )
+            operation = "reverse"
+            endpoint = "payment/reverse"
+        elif current_payment_status in CSOB_REFUND_STATUSES:
+            operation = "refund"
+            endpoint = "payment/refund"
+        else:
+            raise PaymentException(
+                _(
+                    "The ČSOB payment is currently in status {} and can not be "
+                    "refunded automatically."
+                ).format(current_payment_status)
+            )
+
+        request_data = OrderedDict(
             {
                 "merchantId": client.merchant_id,
                 "payId": payment.pay_id,
                 "dttm": self._get_current_timestamp(),
             }
         )
-        if refund.amount != payment.amount:
-            refund_data["amount"] = self._get_amount(refund.amount)
+        if operation == "refund" and refund.amount != payment.amount:
+            request_data["amount"] = self._get_amount(refund.amount)
 
         try:
-            refund_request = client.put("payment/refund", refund_data)
+            refund_request = client.put(endpoint, request_data)
             refund_response = refund_request.json()
         except ValueError:
-            logger.exception("ČSOB refund error")
+            logger.exception("ČSOB %s error", operation)
             raise PaymentException(_("The payment gateway returned an invalid response."))
         except requests.RequestException:
-            logger.exception("ČSOB refund error")
+            logger.exception("ČSOB %s error", operation)
             raise PaymentException(
                 _("An error occurred while communicating with the payment gateway.")
             )
 
-        refund.info = json.dumps(refund_response)
+        refund.info = json.dumps(
+            {
+                "operation": operation,
+                "paymentStatusBefore": current_payment_status,
+                "statusResponse": status_response,
+                "response": refund_response,
+            }
+        )
         refund.save(update_fields=["info"])
 
         result = refund_response.get("resultCode")
-        payment_status = refund_response.get("paymentStatus")
-        if refund_request.status_code != 200 or result != 0:
+        if refund_request.status_code != 200 or str(result) != "0":
             message = refund_response.get("resultMessage") or refund_response.get(
                 "statusDetail"
             )
-            logger.error("ČSOB refund error: %s", refund_response)
+            logger.error("ČSOB %s error: %s", operation, refund_response)
             refund.order.log_action(
                 "pretix.event.order.refund.failed",
                 {
@@ -380,23 +447,28 @@ class CSOBMethod(BasePaymentProvider):
                 },
             )
             raise PaymentException(
-                _("Refunding the amount via ČSOB failed: {}").format(
+                _("Returning the amount via ČSOB failed: {}").format(
                     message or result
                 )
             )
 
+        payment_status = _parse_payment_status(refund_response)
         logger.info(
-            "ČSOB refund accepted for payment %s, refund %s, amount %s %s, "
-            "paymentStatus %s: %s",
+            "ČSOB %s accepted for payment %s, refund %s, amount %s %s, "
+            "paymentStatus %s -> %s: %s",
+            operation,
             payment.pay_id,
             refund.full_id,
             refund.amount,
             refund.order.event.currency,
+            current_payment_status,
             payment_status,
             refund_response,
         )
 
-        if payment_status == 10:
+        if operation == "reverse" and payment_status == 5:
+            refund.done()
+        elif operation == "refund" and payment_status == 10:
             refund.done()
         else:
             refund.state = OrderRefund.REFUND_STATE_TRANSIT
