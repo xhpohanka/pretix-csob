@@ -63,14 +63,21 @@ class CSOBSettingsHolder(BasePaymentProvider):
             ),
         }
 
+        live = (
+            resolved["payment_csob_merchant_id"],
+            resolved["payment_csob_private_key"],
+            resolved["payment_csob_public_key"],
+        )
+        test = (
+            resolved["payment_csob_test_merchant_id"],
+            resolved["payment_csob_test_private_key"],
+            resolved["payment_csob_test_public_key"],
+        )
+
         for sandbox, keys, fill_in_message, invalid_message in (
             (
                 False,
-                (
-                    resolved["payment_csob_merchant_id"],
-                    resolved["payment_csob_private_key"],
-                    resolved["payment_csob_public_key"],
-                ),
+                live,
                 _("Please fill in all live credential fields, or none."),
                 _(
                     "The live keys you provided are not valid. Please verify the keys and "
@@ -79,11 +86,7 @@ class CSOBSettingsHolder(BasePaymentProvider):
             ),
             (
                 True,
-                (
-                    resolved["payment_csob_test_merchant_id"],
-                    resolved["payment_csob_test_private_key"],
-                    resolved["payment_csob_test_public_key"],
-                ),
+                test,
                 _("Please fill in all sandbox credential fields, or none."),
                 _(
                     "The sandbox keys you provided are not valid. Please verify the keys and "
